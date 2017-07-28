@@ -8,12 +8,15 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
-import android.support.v4.util.LruCache;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.SearchView;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -30,7 +33,7 @@ public class PhotoGalleryFragment extends Fragment {
     private PhotoAdapter adapter;
     private List<GalleryItem.Photos.Photo> mItems = new ArrayList<>();
     private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
-    private LruCache<Integer, Bitmap> mMemoryCache;
+    private MemoryCache memoryCache;
 
     public static PhotoGalleryFragment newInstance() {
         return new PhotoGalleryFragment();
@@ -40,9 +43,10 @@ public class PhotoGalleryFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
+        setHasOptionsMenu(true);
 
-        initCache();
-        new FetchItemsTask().execute();
+        memoryCache = new MemoryCache();
+        updateItems();
 
         Handler responseHandler = new Handler();
         mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
@@ -54,11 +58,12 @@ public class PhotoGalleryFragment extends Fragment {
                         getActivity().runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                if (getBitmapFromMemCache(holder.getAdapterPosition()) == null) {
+                                if (memoryCache.getBitmapFromMemCache(holder.getAdapterPosition()) == null) {
+                                    Log.d("TAG1", "Uploaded");
                                     Drawable drawable = new BitmapDrawable(getResources(), thumbnail);
                                     holder.bindDrawable(drawable);
                                 }
-                                addBitmapToMemoryCache(holder.getAdapterPosition(), thumbnail);
+                                memoryCache.addBitmapToMemoryCache(holder.getAdapterPosition(), thumbnail);
                             }
                         });
                     }
@@ -101,28 +106,43 @@ public class PhotoGalleryFragment extends Fragment {
         return v;
     }
 
-    private void initCache() {
-        final int maxMemory = (int) (Runtime.getRuntime().maxMemory());
-        final int cacheSize = maxMemory / 8;
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        inflater.inflate(R.menu.fragment_photo_gallery, menu);
 
-        mMemoryCache = new LruCache<Integer, Bitmap>(cacheSize) {
+        MenuItem searchItem = menu.findItem(R.id.menu_item_search);
+        final SearchView searchView = (SearchView) searchItem.getActionView();
+
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+
             @Override
-            protected int sizeOf(Integer position, Bitmap bitmap) {
-                return bitmap.getByteCount();
+            public boolean onQueryTextSubmit(String query) {
+                Log.d(TAG, "QueryTextSubmit: " + query);
+                QueryPreferences.setStoredQuery(getActivity(), query);
+                updateItems();
+                return false;
             }
-        };
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                Log.d(TAG, "QueryTextChange: " + newText);
+                return false;
+            }
+        });
     }
 
-    public void addBitmapToMemoryCache(Integer key, Bitmap bitmap) {
-        if (getBitmapFromMemCache(key) == null) {
-            mMemoryCache.put(key, bitmap);
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch(item.getItemId()) {
+            case R.id.menu_item_clear:
+                QueryPreferences.setStoredQuery(getActivity(), null);
+                updateItems();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
         }
     }
-
-    public Bitmap getBitmapFromMemCache(Integer key) {
-        return mMemoryCache.get(key);
-    }
-
 
     private void setupAdapter() {
         if (isAdded()) {
@@ -132,14 +152,32 @@ public class PhotoGalleryFragment extends Fragment {
     }
 
     private void loadMoreData() {
-        new FetchItemsTask().execute();
+        String query = QueryPreferences.getStoredQuery(getActivity());
+        new FetchItemsTask(query).execute();
+    }
+
+    private void updateItems() {
+        String query = QueryPreferences.getStoredQuery(getActivity());
+        memoryCache.clearCache();
+        new FetchItemsTask(query).execute();
     }
 
     private class FetchItemsTask extends AsyncTask<Void, Void, List<GalleryItem.Photos.Photo>> {
 
+        private String mQuery;
+
+        public FetchItemsTask(String query) {
+            mQuery = query;
+        }
+
         @Override
-        protected List<GalleryItem.Photos.Photo> doInBackground(Void... voids) {
-            return new FlickrFetchr().fetchItems(page++);
+        protected List<GalleryItem.Photos.Photo> doInBackground(Void ...voids) {
+            Log.d("TAG1", "FetchItemsTask: query = " + mQuery);
+            if (mQuery == null) {
+                return new FlickrFetchr().fetchRecentPhotos(page++);
+            } else {
+                return new FlickrFetchr().searchPhotos(mQuery, page++);
+            }
         }
 
         @Override
@@ -190,10 +228,11 @@ public class PhotoGalleryFragment extends Fragment {
             Drawable placeholder;
             GalleryItem.Photos.Photo galleryItem = mGalleryItems.get(position);
 
-            if(getBitmapFromMemCache(holder.getAdapterPosition()) == null) {
+            if (memoryCache.getBitmapFromMemCache(holder.getAdapterPosition()) == null) {
                 placeholder = getResources().getDrawable(R.mipmap.bill_up_close);
             } else {
-                placeholder = new BitmapDrawable(getResources(), getBitmapFromMemCache(holder.getAdapterPosition()));
+                Log.d("TAG1", "PhotoGalleryFragment: placeholder second");
+                placeholder = new BitmapDrawable(getResources(), memoryCache.getBitmapFromMemCache(holder.getAdapterPosition()));
             }
             holder.bindDrawable(placeholder);
             mThumbnailDownloader.queueThumbnail(holder, galleryItem.getUrl_s());
