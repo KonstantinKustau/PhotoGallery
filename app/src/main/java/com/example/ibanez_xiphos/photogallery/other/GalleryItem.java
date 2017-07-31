@@ -1,4 +1,4 @@
-package com.example.ibanez_xiphos.photogallery;
+package com.example.ibanez_xiphos.photogallery.other;
 
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;

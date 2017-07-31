@@ -1,4 +1,4 @@
-package com.example.ibanez_xiphos.photogallery;
+package com.example.ibanez_xiphos.photogallery.other;
 
 import android.net.Uri;
 import android.util.Log;

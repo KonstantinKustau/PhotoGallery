@@ -1,4 +1,4 @@
-package com.example.ibanez_xiphos.photogallery;
+package com.example.ibanez_xiphos.photogallery.other;
 
 import android.graphics.Bitmap;
 import android.support.v4.util.LruCache;

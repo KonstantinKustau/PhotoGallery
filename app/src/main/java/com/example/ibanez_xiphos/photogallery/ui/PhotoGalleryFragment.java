@@ -1,4 +1,4 @@
-package com.example.ibanez_xiphos.photogallery;
+package com.example.ibanez_xiphos.photogallery.ui;
 
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
@@ -7,7 +7,6 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
@@ -21,10 +20,18 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 
+import com.example.ibanez_xiphos.photogallery.other.FlickrFetchr;
+import com.example.ibanez_xiphos.photogallery.other.GalleryItem;
+import com.example.ibanez_xiphos.photogallery.other.MemoryCache;
+import com.example.ibanez_xiphos.photogallery.other.QueryPreferences;
+import com.example.ibanez_xiphos.photogallery.R;
+import com.example.ibanez_xiphos.photogallery.other.ThumbnailDownloader;
+import com.example.ibanez_xiphos.photogallery.service.PollService;
+
 import java.util.ArrayList;
 import java.util.List;
 
-public class PhotoGalleryFragment extends Fragment {
+public class PhotoGalleryFragment extends VisibleFragment {
 
     private static final String TAG = "PhotoGalleryFragment";
 
@@ -130,6 +137,13 @@ public class PhotoGalleryFragment extends Fragment {
                 return false;
             }
         });
+
+        MenuItem toggleItem = menu.findItem(R.id.menu_item_toggle_polling);
+        if(PollService.isServiceAlarmOn(getActivity())) {
+            toggleItem.setTitle(R.string.stop_polling);
+        } else {
+            toggleItem.setTitle(R.string.start_polling);
+        }
     }
 
     @Override
@@ -138,6 +152,11 @@ public class PhotoGalleryFragment extends Fragment {
             case R.id.menu_item_clear:
                 QueryPreferences.setStoredQuery(getActivity(), null);
                 updateItems();
+                return true;
+            case R.id.menu_item_toggle_polling:
+                boolean shouldStartAlarm = !PollService.isServiceAlarmOn(getActivity());
+                PollService.setServiceAlarm(getActivity(), shouldStartAlarm);
+                getActivity().invalidateOptionsMenu();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -172,7 +191,6 @@ public class PhotoGalleryFragment extends Fragment {
 
         @Override
         protected List<GalleryItem.Photos.Photo> doInBackground(Void ...voids) {
-            Log.d("TAG1", "FetchItemsTask: query = " + mQuery);
             if (mQuery == null) {
                 return new FlickrFetchr().fetchRecentPhotos(page++);
             } else {
