@@ -25,6 +25,10 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.PhotoPageActivity"
+            android:configChanges="keyboardHidden|orientation|screenSize" />
+
         <service android:name=".service.PollService" />
 
         <receiver android:name=".receiver.StartupReceiver">

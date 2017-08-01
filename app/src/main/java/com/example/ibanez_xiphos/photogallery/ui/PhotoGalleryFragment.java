@@ -1,8 +1,10 @@
 package com.example.ibanez_xiphos.photogallery.ui;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
@@ -20,11 +22,11 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 
+import com.example.ibanez_xiphos.photogallery.R;
 import com.example.ibanez_xiphos.photogallery.other.FlickrFetchr;
 import com.example.ibanez_xiphos.photogallery.other.GalleryItem;
 import com.example.ibanez_xiphos.photogallery.other.MemoryCache;
 import com.example.ibanez_xiphos.photogallery.other.QueryPreferences;
-import com.example.ibanez_xiphos.photogallery.R;
 import com.example.ibanez_xiphos.photogallery.other.ThumbnailDownloader;
 import com.example.ibanez_xiphos.photogallery.service.PollService;
 
@@ -205,18 +207,24 @@ public class PhotoGalleryFragment extends VisibleFragment {
         }
     }
 
-    private class PhotoHolder extends RecyclerView.ViewHolder {
+    private class PhotoHolder extends RecyclerView.ViewHolder implements View.OnClickListener   {
 
         private ImageView mItemImageView;
+        private GalleryItem.Photos.Photo mGalleryItem;
 
         public PhotoHolder(View itemView) {
             super(itemView);
 
             mItemImageView = (ImageView) itemView.findViewById(R.id.fragment_photo_gallery_image_view);
+            itemView.setOnClickListener(this);
         }
 
         public void bindDrawable(Drawable drawable) {
             mItemImageView.setImageDrawable(drawable);
+        }
+
+        public void bindGalleryItem(GalleryItem.Photos.Photo galleryItem) {
+            mGalleryItem = galleryItem;
         }
 
 //        public void bindGalleryItem(GalleryItem.Photos.Photo galleryItem) {
@@ -225,6 +233,20 @@ public class PhotoGalleryFragment extends VisibleFragment {
 //                    .placeholder(R.mipmap.bill_up_close)
 //                    .into(mItemImageView);
 //        }
+
+        @Override
+        public void onClick(View view) {
+            Intent i = PhotoPageActivity.newIntent(getActivity(), getPhotoPageUri());
+            startActivity(i);
+        }
+
+        private Uri getPhotoPageUri() {
+            return Uri.parse("http://www.flickr.com/photos/")
+                    .buildUpon()
+                    .appendPath(mGalleryItem.getOwner())
+                    .appendPath(mGalleryItem.getId())
+                    .build();
+        }
     }
 
     private class PhotoAdapter extends RecyclerView.Adapter<PhotoHolder> {
@@ -245,6 +267,7 @@ public class PhotoGalleryFragment extends VisibleFragment {
         public void onBindViewHolder(PhotoHolder holder, int position) {
             Drawable placeholder;
             GalleryItem.Photos.Photo galleryItem = mGalleryItems.get(position);
+            holder.bindGalleryItem(galleryItem);
 
             if (memoryCache.getBitmapFromMemCache(holder.getAdapterPosition()) == null) {
                 placeholder = getResources().getDrawable(R.mipmap.bill_up_close);
